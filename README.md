@@ -521,13 +521,11 @@ The following extensions are planned as potential future enhancements:
 
 ---
 
-## 16. Author and Academic Credits
+## 16. Deployed Link
 
 * **Project Name:** SmartResume AI – Automated Resume Information Extraction and Analysis
-* **Academic Level:** Computer Science Engineering (AI & Machine Learning)
-* **License:** [MIT License](LICENSE)
-* **Author / Developer:** [Nikhil / SmartResume AI Team]
-* **Repository:** [https://github.com/your-username/SmartResume-AI](https://github.com/your-username/SmartResume-AI)
+* **Link:** https://smartresume-ai-wf.streamlit.app/
+
 
 ---
 
