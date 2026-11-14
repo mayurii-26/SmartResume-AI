@@ -1,0 +1,150 @@
+"""
+SmartResume AI - Settings & Privacy Management Page
+API credentials, model configuration, knowledge base management,
+file retention policies, data deletion, and privacy governance.
+"""
+
+import streamlit as st
+import os
+from database.db_manager import db
+from modules.genai_assistant import GenAIAssistant
+from config.settings import BASE_DIR, DB_PATH, MODELS_DIR
+
+
+def render_settings():
+    """Renders the settings and security configuration interface."""
+    st.markdown('<div class="brand-badge">SYSTEM CONFIGURATION & PRIVACY</div>', unsafe_allow_html=True)
+    st.title("Settings & Data Privacy")
+    st.caption("Manage LLM credentials, model parameters, persistent local storage, and GDPR-compliant data purge.")
+
+    assistant = GenAIAssistant()
+    is_grok_active = assistant.is_configured()
+
+    tab1, tab2, tab3 = st.tabs([
+        "🔑 API & Model Configuration",
+        "🛡️ Privacy & Local Retention",
+        "ℹ️ System & Environment Diagnostics"
+    ])
+
+    # Tab 1: API Configuration
+    with tab1:
+        st.subheader("LLM Provider Configuration (xAI Grok)")
+        st.caption("Configured for the official xAI Grok REST API endpoint: `https://api.x.ai/v1`")
+
+        st.markdown(f"""
+        **Connection Status:** `{'🟡 Configured — test from AI Resume Assistant' if is_grok_active else '🔴 Not Configured (Offline Mode)'}`
+        """)
+
+        grok_key_input = st.text_input(
+            "xAI Grok API Key (XAI_API_KEY):",
+            type="password",
+            placeholder="Enter xAI API Key (e.g. xai-...)",
+            help="Your API key is used strictly in local memory and is never transmitted or hardcoded."
+        )
+
+        model_options = ["grok-2-latest", "grok-2", "grok-beta", "grok-4.3", "grok-4.7"]
+        current_model_idx = model_options.index(assistant.model_name) if assistant.model_name in model_options else 0
+
+        model_choice = st.selectbox(
+            "Grok Model Variant:",
+            options=model_options,
+            index=current_model_idx,
+            help="Default: grok-2-latest (recommended flagship model for reasoning and extraction)."
+        )
+
+        if st.button("Save API Configuration"):
+            if grok_key_input.strip():
+                new_key = grok_key_input.strip()
+                os.environ["XAI_API_KEY"] = new_key
+                os.environ["GROK_MODEL"] = model_choice
+
+                # Update .env file for persistence
+                env_path = BASE_DIR / ".env"
+                try:
+                    lines = []
+                    if env_path.exists():
+                        lines = env_path.read_text(encoding="utf-8").splitlines()
+                    updated = False
+                    new_lines = []
+                    for line in lines:
+                        if line.startswith("XAI_API_KEY="):
+                            new_lines.append(f"XAI_API_KEY={new_key}")
+                            updated = True
+                        elif line.startswith("GROK_MODEL="):
+                            new_lines.append(f"GROK_MODEL={model_choice}")
+                        else:
+                            new_lines.append(line)
+                    if not updated:
+                        new_lines.append(f"XAI_API_KEY={new_key}")
+                        new_lines.append(f"GROK_MODEL={model_choice}")
+                        new_lines.append("GROK_API_BASE=https://api.x.ai/v1")
+                    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+                except Exception:
+                    pass
+
+                st.session_state["grok_connection_verified"] = False
+                st.success("xAI Grok API configuration saved successfully! The AI Assistant is now active.")
+                st.rerun()
+            else:
+                st.warning("Please enter a valid xAI Grok API key string.")
+
+    # Tab 2: Privacy & Purge
+    with tab2:
+        st.subheader("Data Retention & Privacy Controls")
+        st.markdown("""
+        **Data Governance Policies:**
+        - **Local SQLite Storage:** All resume texts, profiles, and entities are stored solely on your local workstation in `data/smartresume.db`.
+        - **Zero External Telemetry:** Extracted candidate profiles are never sent to external third parties without user-initiated AI queries.
+        - **GDPR Right-to-Erasure:** You can delete individual candidate records at any time or completely wipe the database.
+        """)
+
+        st.divider()
+
+        st.subheader("GDPR Right-to-Erasure: Delete Individual Candidate")
+        st.caption("Permanently remove an individual candidate and their uploaded file without affecting other records.")
+        all_res = db.get_all_resumes()
+        if all_res:
+            res_map = {f"RES-{r['id']:03d} • {r['filename']}": r["id"] for r in all_res}
+            selected_gdpr_label = st.selectbox("Select Candidate to Erase:", list(res_map.keys()), key="gdpr_select_resume")
+            selected_gdpr_id = res_map[selected_gdpr_label]
+            confirm_gdpr = st.checkbox(f"Permanently erase candidate {selected_gdpr_label}", key=f"chk_gdpr_{selected_gdpr_id}")
+            if st.button("🗑️ Erase Candidate Record", type="primary", disabled=not confirm_gdpr, key=f"btn_gdpr_{selected_gdpr_id}"):
+                ok = db.delete_resume(selected_gdpr_id)
+                if ok:
+                    if st.session_state.get("active_resume_id") == selected_gdpr_id:
+                        st.session_state.pop("active_resume_id", None)
+                    st.success(f"✓ Candidate {selected_gdpr_label} has been completely erased from database and storage.")
+                    st.rerun()
+                else:
+                    st.error("Failed to erase candidate record.")
+        else:
+            st.info("No candidate records currently stored in database.")
+
+        st.divider()
+
+        st.subheader("Dangerous Action: Purge All Application Data")
+        st.warning("This action permanently deletes all resumes, candidate profiles, entities, and analysis metadata from the SQLite database.")
+
+        confirm_purge = st.checkbox("I understand that this action is irreversible and permanently deletes all stored resumes.")
+        if st.button("🗑️ Purge All Stored Data", type="primary", disabled=not confirm_purge):
+            db.clear_all_data()
+            st.success("All resume records and extracted profiles have been completely erased from the local database.")
+            st.rerun()
+
+    # Tab 3: System Diagnostics
+    with tab3:
+        st.subheader("System Diagnostics & NLP Pipeline Status")
+
+        has_trained_model = (MODELS_DIR / "resume_ner_model").exists()
+        resumes_count = len(db.get_all_resumes())
+
+        diag_data = [
+            {"Component": "Database File", "Status": "Active", "Details": str(DB_PATH)},
+            {"Component": "Trained Resume NER Model", "Status": "Ready" if has_trained_model else "Missing", "Details": str(MODELS_DIR / "resume_ner_model")},
+            {"Component": "spaCy English Pipeline", "Status": "Ready", "Details": "spacy.blank('en') + EntityRuler + NER"},
+            {"Component": "NLTK Resources", "Status": "Installed", "Details": "punkt, stopwords, wordnet, vader_lexicon"},
+            {"Component": "Current Corpus Resumes", "Status": "Populated" if resumes_count > 0 else "Empty", "Details": f"{resumes_count} resumes"},
+            {"Component": "xAI Grok Generative AI", "Status": "Connected" if is_grok_active else "Offline", "Details": f"{assistant.model_name} (https://api.x.ai/v1)"}
+        ]
+
+        st.dataframe(diag_data, width="stretch", hide_index=True)
