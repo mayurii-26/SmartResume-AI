@@ -9,11 +9,9 @@ import string
 from collections import Counter
 from typing import Dict, List, Any, Tuple
 import nltk
-from config.settings import DATA_DIR
+from modules.nltk_setup import ensure_nltk_resources
 
-local_nltk = DATA_DIR / "nltk_data"
-if local_nltk.exists() and str(local_nltk) not in nltk.data.path:
-    nltk.data.path.insert(0, str(local_nltk))
+ensure_nltk_resources()
 
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
@@ -79,7 +77,10 @@ class TextPreprocessor:
         """Tokenizes text into individual words/tokens."""
         if not text:
             return []
-        raw_tokens = word_tokenize(text)
+        try:
+            raw_tokens = word_tokenize(text)
+        except Exception:
+            raw_tokens = re.findall(r"\w+|[^\w\s]", text, re.UNICODE)
         if lowercase:
             return [t.lower() for t in raw_tokens]
         return raw_tokens

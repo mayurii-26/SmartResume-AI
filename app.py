@@ -9,6 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+from modules.nltk_setup import ensure_nltk_resources
+ensure_nltk_resources()
+
 st.set_page_config(page_title="SmartResume AI", page_icon=":material/description:", layout="wide", initial_sidebar_state="expanded")
 
 from ui.styles import CUSTOM_CSS

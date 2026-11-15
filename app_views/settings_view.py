@@ -188,7 +188,7 @@ def render_settings():
             {"Component": "Database File", "Status": "Active", "Details": str(DB_PATH)},
             {"Component": "Trained Resume NER Model", "Status": "Ready" if has_trained_model else "Missing", "Details": str(MODELS_DIR / "resume_ner_model")},
             {"Component": "spaCy English Pipeline", "Status": "Ready", "Details": "spacy.blank('en') + EntityRuler + NER"},
-            {"Component": "NLTK Resources", "Status": "Installed", "Details": "punkt, stopwords, wordnet, vader_lexicon"},
+            {"Component": "NLTK Resources", "Status": "Installed", "Details": "punkt_tab, punkt, stopwords, wordnet, vader_lexicon"},
             {"Component": "Current Corpus Resumes", "Status": "Populated" if resumes_count > 0 else "Empty", "Details": f"{resumes_count} resumes"},
             {"Component": "GroqCloud Generative AI", "Status": "Configured" if is_groq_active else "Offline", "Details": f"{assistant.model_name} (https://api.groq.com/openai/v1)"}
         ]

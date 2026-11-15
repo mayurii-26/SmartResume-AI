@@ -10,22 +10,22 @@ trustworthiness, integrity, or hiring suitability.
 """
 
 import os
+import logging
 from typing import Dict, List, Any
 import nltk
-from config.settings import DATA_DIR
+from modules.nltk_setup import ensure_nltk_resources
 
-local_nltk = DATA_DIR / "nltk_data"
-if local_nltk.exists() and str(local_nltk) not in nltk.data.path:
-    nltk.data.path.insert(0, str(local_nltk))
+ensure_nltk_resources()
 
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
+logger = logging.getLogger(__name__)
 
 # Initialize VADER analyzer
 try:
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer
     analyzer = SentimentIntensityAnalyzer()
-except Exception:
-    nltk.download('vader_lexicon', download_dir=str(local_nltk), quiet=True)
-    analyzer = SentimentIntensityAnalyzer()
+except Exception as e:
+    logger.warning(f"Could not initialize SentimentIntensityAnalyzer: {e}")
+    analyzer = None
 
 
 class ResumeSentimentAnalyzer:
@@ -57,6 +57,18 @@ class ResumeSentimentAnalyzer:
                 "tone_label": "Neutral / Objective",
                 "word_count": 0,
                 "text_snippet": ""
+            }
+
+        if analyzer is None:
+            return {
+                "section_name": section_name,
+                "pos": 0.0,
+                "neu": 1.0,
+                "neg": 0.0,
+                "compound": 0.0,
+                "tone_label": "Neutral / Objective",
+                "word_count": len(clean_text.split()),
+                "text_snippet": clean_text[:250] + ("..." if len(clean_text) > 250 else "")
             }
 
         scores = analyzer.polarity_scores(clean_text)
